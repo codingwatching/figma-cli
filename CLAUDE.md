@@ -134,72 +134,44 @@ node src/index.js connect
 npm install
 ```
 
-### Step 2: Ask which connection mode
+### Step 2: Connect with Safe Mode (Recommended)
 
-**Use AskUserQuestion tool to ask:**
+Run:
+```bash
+node src/index.js connect --safe
+```
 
-Question: "Which connection mode do you want to use?"
+Then guide user through Figma setup ONE STEP AT A TIME:
 
-Options:
-1. **Safe Mode (Recommended)** - No patching, works everywhere, just start plugin in Figma
-2. **Yolo Mode** - Fully automatic, but patches Figma and needs Full Disk Access on Mac
+**Say:** "Open Figma Desktop. Tell me when it's open."
 
-### Step 3a: If user chooses Yolo Mode
+**After user confirms, say:** "Go to: **Plugins → Development → Import plugin from manifest**"
+
+**After user confirms, say:** "Navigate to the figma-cli folder and select **plugin/manifest.json**, then click Open."
+
+**After user confirms, say:** "Now run the plugin: **Plugins → Development → FigCli**"
+
+**When terminal shows "Plugin connected!", say:**
+```
+Connected! You're ready to go.
+
+TIP: Right-click the FigCli plugin → "Add to toolbar" for quick access next time.
+
+Try asking me:
+- "Create a blue rectangle"
+- "Add Tailwind colors"
+- "Create a card component"
+```
+
+### Alternative: Yolo Mode (if user asks)
+
+Only use if user specifically asks for "automatic" or "no plugin" mode:
 
 ```bash
 node src/index.js connect
 ```
 
-This command:
-- Patches Figma if needed (first time only)
-- Closes and restarts Figma with debug port enabled
-- Connects automatically
-
-**If permission error appears**, tell user:
-```
-Permission error! Grant Full Disk Access:
-1. System Settings → Privacy & Security → Full Disk Access
-2. Add Terminal (or your terminal app)
-3. Restart Terminal completely (Cmd+Q, reopen)
-4. Try again
-
-Or switch to Safe Mode if you can't grant permissions.
-```
-
-### Step 3b: If user chooses Safe Mode
-
-```bash
-node src/index.js connect --safe
-```
-
-Then tell user:
-```
-Safe Mode started! Now set up the plugin in Figma:
-
-ONE-TIME SETUP:
-1. Open Figma Desktop
-2. Go to: Plugins → Development → Import plugin from manifest
-3. Navigate to this folder and select: plugin/manifest.json
-4. Click "Open"
-
-EACH SESSION:
-1. In Figma: Plugins → Development → FigCli
-2. A small window appears (keep it open)
-3. Terminal shows "Plugin connected!"
-
-TIP: Right-click the plugin → "Add to toolbar" for quick access
-```
-
-### Step 4: Show examples
-When connected, show:
-```
-Ready! Try asking:
-
-"Create a blue rectangle"
-"Add Tailwind colors to my file"
-"Create a card with title and description"
-"Check accessibility"
-```
+This patches Figma (needs Full Disk Access on Mac). If permission error, suggest Safe Mode instead.
 
 ---
 
