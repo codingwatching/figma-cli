@@ -41,11 +41,26 @@ Other tools require MCP servers, API keys, or complex setup. This one doesn't.
 
 | | figma-ds-cli | MCP-based tools |
 |---|---|---|
-| **Setup** | Paste link in Claude, done | Configure MCP server + client |
+| **Setup** | Clone, "Initiate project", done | Configure MCP server + client |
 | **API Key** | Not needed | Personal Access Token or OAuth |
-| **Claude Code** | Just run `claude` | Manual MCP configuration |
-| **AI Knowledge** | `CLAUDE.md` included, AI knows everything | Teach AI manually |
+| **Figma API Access** | **Entire Plugin API** via `eval` | Limited to predefined tools |
+| **Add Features** | Update `CLAUDE.md` | Fork repo, rebuild MCP server |
+| **AI Knowledge** | `CLAUDE.md` included | Teach AI manually |
 | **Designer-friendly** | Yes | Requires technical setup |
+
+### Unlimited Extensibility
+
+MCP tools give you a fixed set of features. This CLI gives you the **entire Figma Plugin API**.
+
+Want a feature that doesn't exist? Just ask Claude. He generates the code:
+
+```
+You: "Find all text layers using Comic Sans"
+
+Claude runs: eval "figma.currentPage.findAll(n => n.type === 'TEXT' && n.fontName.family === 'Comic Sans MS')"
+```
+
+No forking. No rebuilding. No waiting for someone to add the feature.
 
 ### The CLAUDE.md Advantage
 
@@ -55,9 +70,9 @@ This project includes a `CLAUDE.md` file that Claude reads automatically. It con
 - Best practices (e.g., "use `render` for text-heavy designs")
 - Common requests mapped to solutions
 
-**Example:** You type "Create Tailwind colors" → Claude already knows to run `node src/index.js tokens tailwind` because it's documented in `CLAUDE.md`.
+**Want to teach Claude new tricks?** Just update `CLAUDE.md`. No code changes needed.
 
-No explaining. No teaching. Just ask.
+**Example:** You type "Create Tailwind colors" → Claude already knows to run `node src/index.js tokens tailwind` because it's documented in `CLAUDE.md`.
 
 ---
 
