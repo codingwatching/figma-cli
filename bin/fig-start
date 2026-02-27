@@ -4,7 +4,8 @@
 # Connects to Figma, lets you pick an open file, then launches Claude Code.
 #
 # Usage:
-#   fig-start          → interactive file selector
+#   fig-start          → Yolo Mode (default) with file selector
+#   fig-start --safe   → Safe Mode (plugin-based, no patching)
 #   fig-start --setup  → set/change the figma-cli repo path
 
 CONFIG_DIR="$HOME/.figma-cli"
@@ -102,7 +103,13 @@ select_file() {
 
 # ── Main ──
 
-# Handle --setup flag
+# Handle flags
+SAFE_MODE=false
+if [ "$1" = "--safe" ]; then
+    SAFE_MODE=true
+    shift
+fi
+
 if [ "$1" = "--setup" ]; then
     printf "${BOLD}Enter the path to your figma-cli repo:${NC} "
     read -r repo_path < /dev/tty
@@ -141,7 +148,11 @@ fi
 CLI="$REPO_PATH/src/index.js"
 
 echo ""
-echo -e "${BOLD}  fig-start${NC} ${DIM}— Figma CLI launcher${NC}"
+if [ "$SAFE_MODE" = true ]; then
+    echo -e "${BOLD}  fig-start${NC} ${DIM}— Figma CLI launcher (Safe Mode)${NC}"
+else
+    echo -e "${BOLD}  fig-start${NC} ${DIM}— Figma CLI launcher${NC}"
+fi
 echo ""
 
 # Step 1: Check if Figma is running, start if not
@@ -152,52 +163,73 @@ if ! pgrep -x "Figma" > /dev/null 2>&1; then
 fi
 
 # Step 2: Connect to Figma
-# Check if CDP is already accessible (avoid killing/restarting Figma)
-CDP_OK=false
-if curl -s -o /dev/null -w "%{http_code}" http://localhost:9222/json 2>/dev/null | grep -q "200"; then
-    CDP_OK=true
-fi
-
-if [ "$CDP_OK" = true ]; then
-    # Figma is already accessible — just ensure daemon is running
-    DAEMON_OK=false
-    if curl -s -o /dev/null -w "%{http_code}" http://localhost:3456/health 2>/dev/null | grep -q "200"; then
-        DAEMON_OK=true
-    fi
-    if [ "$DAEMON_OK" = false ]; then
-        echo -e "  Starting daemon..."
-        node "$CLI" daemon restart > /dev/null 2>&1
-        sleep 1
-    fi
-    echo -e "  ${GREEN}✓ Connected${NC}"
-else
-    # Not accessible — run full connect (will kill + restart Figma)
-    echo -e "  Connecting to Figma..."
-    CONNECT_OUT=$(node "$CLI" connect 2>&1)
+if [ "$SAFE_MODE" = true ]; then
+    # ── Safe Mode: plugin-based connection ──
+    # Run connect --safe interactively so user sees plugin setup instructions
+    echo -e "  ${BOLD}🔒 Safe Mode${NC} — plugin-based, no patching required"
+    echo ""
+    node "$CLI" connect --safe
     if [ $? -ne 0 ]; then
-        echo -e "  ${RED}Connection failed:${NC}"
-        echo "$CONNECT_OUT"
+        echo -e "  ${RED}Connection failed.${NC}"
         exit 1
     fi
-    echo -e "  ${GREEN}✓ Connected${NC}"
-    # Wait for Figma to fully restore all tabs after restart
-    sleep 3
-fi
+    echo ""
 
-# Step 3: List open files and let user pick
-echo -e "  Loading open files..."
-FILES_JSON=$(node "$CLI" files 2>/dev/null)
+    # Skip file selector (Safe Mode only sees the active file via plugin)
+    echo -e "  ${GREEN}Launching Claude Code...${NC}"
+    echo ""
+    cd "$REPO_PATH" || exit 1
+    exec claude
+else
+    # ── Yolo Mode: CDP-based connection ──
+    # Check if CDP is already accessible (avoid killing/restarting Figma)
+    CDP_OK=false
+    if curl -s -o /dev/null -w "%{http_code}" http://localhost:9222/json 2>/dev/null | grep -q "200"; then
+        CDP_OK=true
+    fi
 
-if [ -z "$FILES_JSON" ] || echo "$FILES_JSON" | grep -q '"error"'; then
-    echo -e "  ${RED}Could not list files.${NC} Is Figma open with a file?"
-    exit 1
-fi
+    if [ "$CDP_OK" = true ]; then
+        # Figma is already accessible — just ensure daemon is running
+        DAEMON_OK=false
+        if curl -s -o /dev/null -w "%{http_code}" http://localhost:3456/health 2>/dev/null | grep -q "200"; then
+            DAEMON_OK=true
+        fi
+        if [ "$DAEMON_OK" = false ]; then
+            echo -e "  Starting daemon..."
+            node "$CLI" daemon restart > /dev/null 2>&1
+            sleep 1
+        fi
+        echo -e "  ${GREEN}✓ Connected${NC}"
+    else
+        # Not accessible — run full connect (will kill + restart Figma)
+        echo -e "  Connecting to Figma..."
+        CONNECT_OUT=$(node "$CLI" connect 2>&1)
+        if [ $? -ne 0 ]; then
+            echo -e "  ${RED}Connection failed:${NC}"
+            echo "$CONNECT_OUT"
+            echo ""
+            echo -e "  ${YELLOW}Tip:${NC} Try ${BOLD}fig-start --safe${NC} if patching fails."
+            exit 1
+        fi
+        echo -e "  ${GREEN}✓ Connected${NC}"
+        # Wait for Figma to fully restore all tabs after restart
+        sleep 3
+    fi
 
-# Parse file titles
-FILE_TITLES=()
-while IFS= read -r title; do
-    FILE_TITLES+=("$title")
-done < <(echo "$FILES_JSON" | python3 -c "
+    # Step 3: List open files and let user pick
+    echo -e "  Loading open files..."
+    FILES_JSON=$(node "$CLI" files 2>/dev/null)
+
+    if [ -z "$FILES_JSON" ] || echo "$FILES_JSON" | grep -q '"error"'; then
+        echo -e "  ${RED}Could not list files.${NC} Is Figma open with a file?"
+        exit 1
+    fi
+
+    # Parse file titles
+    FILE_TITLES=()
+    while IFS= read -r title; do
+        FILE_TITLES+=("$title")
+    done < <(echo "$FILES_JSON" | python3 -c "
 import json, sys
 files = json.load(sys.stdin)
 for f in files:
@@ -207,29 +239,30 @@ for f in files:
     print(t)
 " 2>/dev/null)
 
-if [ ${#FILE_TITLES[@]} -eq 0 ]; then
-    echo -e "  ${YELLOW}No Figma files detected.${NC} Open a file in Figma first."
+    if [ ${#FILE_TITLES[@]} -eq 0 ]; then
+        echo -e "  ${YELLOW}No Figma files detected.${NC} Open a file in Figma first."
+        echo ""
+        echo -e "  Launching Claude Code anyway..."
+        echo ""
+        cd "$REPO_PATH" || exit 1
+        exec claude
+    fi
+
+    SELECTED_TITLE=""
+
     echo ""
-    echo -e "  Launching Claude Code anyway..."
+    SELECTED_TITLE=$(select_file "${FILE_TITLES[@]}")
+    if [ -z "$SELECTED_TITLE" ]; then
+        echo "  Cancelled."
+        exit 0
+    fi
+
+    echo -e "  ${GREEN}✓ File: ${BOLD}${SELECTED_TITLE}${NC}"
+    echo ""
+
+    # Step 4: Launch Claude Code from repo directory
+    echo -e "  ${GREEN}Launching Claude Code...${NC}"
     echo ""
     cd "$REPO_PATH" || exit 1
     exec claude
 fi
-
-SELECTED_TITLE=""
-
-echo ""
-SELECTED_TITLE=$(select_file "${FILE_TITLES[@]}")
-if [ -z "$SELECTED_TITLE" ]; then
-    echo "  Cancelled."
-    exit 0
-fi
-
-echo -e "  ${GREEN}✓ File: ${BOLD}${SELECTED_TITLE}${NC}"
-echo ""
-
-# Step 4: Launch Claude Code from repo directory
-echo -e "  ${GREEN}Launching Claude Code...${NC}"
-echo ""
-cd "$REPO_PATH" || exit 1
-exec claude

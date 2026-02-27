@@ -55,7 +55,7 @@ This project includes a `CLAUDE.md` file that Claude reads automatically. It con
 - **Figma Desktop** (free account works)
 - **Claude Code** ([get it here](https://www.anthropic.com/claude-code))
 - **macOS or Windows** (macOS recommended, Windows supported)
-- **macOS Full Disk Access** for Terminal (needed for Yolo Mode — see [Troubleshooting](#permission-error-when-patching-macos))
+- **macOS Full Disk Access** for Terminal (Yolo Mode only — not needed for [Safe Mode](#-safe-mode--for-restricted-environments))
 
 ---
 
@@ -77,7 +77,7 @@ fig-start
 
 This will:
 1. Start Figma (if not running)
-2. Connect to Figma and start the speed daemon
+2. Connect to Figma (Yolo Mode — patches Figma once for direct access)
 3. Show your open Figma files — pick one with arrow keys
 4. Launch Claude Code with all commands pre-loaded
 
@@ -85,9 +85,17 @@ This will:
 
 > **Note:** `fig-start` works from any directory. The setup script saves the repo location automatically.
 
-### Alternative: Manual Setup
+### Safe Mode (no patching)
 
-If you prefer not to use `fig-start`:
+If you can't grant Full Disk Access or prefer not to patch Figma:
+
+```bash
+fig-start --safe
+```
+
+This uses a Figma plugin instead of patching. See [Safe Mode](#-safe-mode--for-restricted-environments) for details.
+
+### Manual Setup (without fig-start)
 
 ```bash
 cd figma-cli
@@ -95,10 +103,6 @@ claude
 ```
 
 Then tell Claude: `Connect to Figma`
-
-Claude asks which connection mode:
-- **Yolo Mode (Recommended)** — Fully automatic, secure random port
-- **Safe Mode** — For corporate/restricted environments
 
 ---
 
@@ -165,8 +169,9 @@ node src/index.js connect
 
 **Step 1:** Start Safe Mode
 ```bash
-node src/index.js connect --safe
+fig-start --safe
 ```
+Or manually: `node src/index.js connect --safe`
 
 **Step 2:** Import plugin (one-time only)
 1. In Figma: **Plugins → Development → Import plugin from manifest**
@@ -183,13 +188,13 @@ node src/index.js connect --safe
 
 ### Which Mode Should I Use?
 
-| Situation | Recommended Mode |
+| Situation | Command |
 |---|---|
-| First time user | **Yolo Mode** |
-| Personal Mac | **Yolo Mode** |
-| Corporate laptop | **Safe Mode** |
-| Permission errors with Yolo | **Safe Mode** |
-| Can't modify apps | **Safe Mode** |
+| First time user | `fig-start` (Yolo Mode) |
+| Personal Mac | `fig-start` (Yolo Mode) |
+| Corporate laptop | `fig-start --safe` |
+| Permission errors with Yolo | `fig-start --safe` |
+| Can't modify apps | `fig-start --safe` |
 
 ---
 
