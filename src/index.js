@@ -4,6 +4,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import { execSync, spawn } from 'child_process';
+import { randomBytes } from 'crypto';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -17,11 +18,32 @@ import { isPatched, patchFigma, unpatchFigma, getFigmaCommand, getCdpPort } from
 // Daemon configuration
 const DAEMON_PORT = 3456;
 const DAEMON_PID_FILE = join(homedir(), '.figma-cli-daemon.pid');
+const DAEMON_TOKEN_FILE = join(homedir(), '.figma-ds-cli', '.daemon-token');
+
+// Generate and save a new session token for daemon authentication
+function generateDaemonToken() {
+  const configDir = join(homedir(), '.figma-ds-cli');
+  if (!existsSync(configDir)) mkdirSync(configDir, { recursive: true });
+  const token = randomBytes(32).toString('hex');
+  writeFileSync(DAEMON_TOKEN_FILE, token, { mode: 0o600 });
+  return token;
+}
+
+// Read the current daemon session token
+function getDaemonToken() {
+  try {
+    return readFileSync(DAEMON_TOKEN_FILE, 'utf8').trim();
+  } catch {
+    return null;
+  }
+}
 
 // Check if daemon is running
 function isDaemonRunning() {
   try {
-    const response = execSync(`curl -s -o /dev/null -w "%{http_code}" http://localhost:${DAEMON_PORT}/health`, {
+    const token = getDaemonToken();
+    const tokenHeader = token ? ` -H "X-Daemon-Token: ${token}"` : '';
+    const response = execSync(`curl -s -o /dev/null -w "%{http_code}"${tokenHeader} http://localhost:${DAEMON_PORT}/health`, {
       encoding: 'utf8',
       stdio: 'pipe',
       timeout: 1000
@@ -34,9 +56,13 @@ function isDaemonRunning() {
 
 // Send command to daemon (uses native fetch in Node 18+)
 async function daemonExec(action, data = {}) {
+  const token = getDaemonToken();
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['X-Daemon-Token'] = token;
+
   const response = await fetch(`http://localhost:${DAEMON_PORT}/exec`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({ action, ...data }),
     signal: AbortSignal.timeout(60000)
   });
@@ -134,6 +160,9 @@ function startDaemon(forceRestart = false, mode = 'auto') {
   } else if (isDaemonRunning()) {
     return true; // Already running
   }
+
+  // Generate session token before spawning daemon
+  generateDaemonToken();
 
   const daemonScript = join(dirname(fileURLToPath(import.meta.url)), 'daemon.js');
   const child = spawn('node', [daemonScript], {
@@ -284,8 +313,10 @@ function figmaEvalSync(code) {
       const payload = JSON.stringify({ action: 'eval', code: wrappedCode });
       const payloadFile = `/tmp/figma-payload-${Date.now()}.json`;
       writeFileSync(payloadFile, payload);
+      const daemonToken = getDaemonToken();
+      const tokenHeader = daemonToken ? ` -H "X-Daemon-Token: ${daemonToken}"` : '';
       const result = execSync(
-        `curl -s -X POST http://127.0.0.1:3456/exec -H "Content-Type: application/json" -d @${payloadFile}`,
+        `curl -s -X POST http://127.0.0.1:${DAEMON_PORT}/exec -H "Content-Type: application/json"${tokenHeader} -d @${payloadFile}`,
         { encoding: 'utf8', timeout: 60000 }
       );
       try { unlinkSync(payloadFile); } catch {}
@@ -298,7 +329,9 @@ function figmaEvalSync(code) {
     } catch (e) {
       // Check if we're in Safe Mode (plugin only) - don't fall through to CDP
       try {
-        const healthRes = execSync(`curl -s http://127.0.0.1:${DAEMON_PORT}/health`, { encoding: 'utf8', timeout: 2000 });
+        const healthToken = getDaemonToken();
+        const healthHeader = healthToken ? ` -H "X-Daemon-Token: ${healthToken}"` : '';
+        const healthRes = execSync(`curl -s${healthHeader} http://127.0.0.1:${DAEMON_PORT}/health`, { encoding: 'utf8', timeout: 2000 });
         const health = JSON.parse(healthRes);
         if (health.plugin && !health.cdp) {
           // Safe Mode - re-throw the error, don't try CDP fallback
@@ -443,7 +476,9 @@ function figmaUse(args, options = {}) {
 async function checkConnection() {
   // First check daemon (works for both CDP and Plugin modes)
   try {
-    const health = execSync(`curl -s http://127.0.0.1:${DAEMON_PORT}/health`, { encoding: 'utf8', timeout: 2000 });
+    const connToken = getDaemonToken();
+    const connHeader = connToken ? ` -H "X-Daemon-Token: ${connToken}"` : '';
+    const health = execSync(`curl -s${connHeader} http://127.0.0.1:${DAEMON_PORT}/health`, { encoding: 'utf8', timeout: 2000 });
     const data = JSON.parse(health);
     if (data.status === 'ok' && (data.plugin || data.cdp)) {
       return true;
@@ -466,7 +501,9 @@ async function checkConnection() {
 function checkConnectionSync() {
   // First check daemon (works for both CDP and Plugin modes)
   try {
-    const health = execSync(`curl -s http://127.0.0.1:${DAEMON_PORT}/health`, { encoding: 'utf8', timeout: 2000 });
+    const syncToken = getDaemonToken();
+    const syncHeader = syncToken ? ` -H "X-Daemon-Token: ${syncToken}"` : '';
+    const health = execSync(`curl -s${syncHeader} http://127.0.0.1:${DAEMON_PORT}/health`, { encoding: 'utf8', timeout: 2000 });
     const data = JSON.parse(health);
     if (data.status === 'ok' && (data.plugin || data.cdp)) {
       return true;
@@ -908,7 +945,9 @@ program
       for (let i = 0; i < 30; i++) {  // Wait up to 30 seconds
         await new Promise(r => setTimeout(r, 1000));
         try {
-          const healthRes = execSync(`curl -s http://127.0.0.1:${DAEMON_PORT}/health`, { encoding: 'utf8' });
+          const pluginToken = getDaemonToken();
+          const pluginHeader = pluginToken ? ` -H "X-Daemon-Token: ${pluginToken}"` : '';
+          const healthRes = execSync(`curl -s${pluginHeader} http://127.0.0.1:${DAEMON_PORT}/health`, { encoding: 'utf8' });
           const health = JSON.parse(healthRes);
           if (health.plugin) {
             pluginSpinner.succeed('Plugin connected!');
@@ -1615,7 +1654,10 @@ daemon
     }
     console.log(chalk.blue('Reconnecting to Figma...'));
     try {
-      const response = await fetch(`http://localhost:${DAEMON_PORT}/reconnect`);
+      const reconnToken = getDaemonToken();
+      const reconnHeaders = {};
+      if (reconnToken) reconnHeaders['X-Daemon-Token'] = reconnToken;
+      const response = await fetch(`http://localhost:${DAEMON_PORT}/reconnect`, { headers: reconnHeaders });
       const result = await response.json();
       if (result.error) {
         console.log(chalk.red('✗ Reconnect failed: ' + result.error));
