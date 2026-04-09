@@ -469,4 +469,190 @@ node src/index.js render '<Frame>...</Frame>'
 node src/index.js render '<Frame>...</Frame>'
 ```
 
-Or use `eval` with native Figma API for maximum control (see "Complex Components" in CLAUDE.md).
+Or use `eval` with native Figma API for maximum control (see below).
+
+## Safe Mode Component Creation
+
+**DO NOT use render-batch for components with text in Safe Mode.** Use `eval` with native Figma API:
+
+```javascript
+node src/index.js eval "(async () => {
+  // 1. Load fonts FIRST
+  await figma.loadFontAsync({ family: 'Inter', style: 'Bold' });
+  await figma.loadFontAsync({ family: 'Inter', style: 'Regular' });
+
+  // 2. Create frame with FIXED width
+  const card = figma.createFrame();
+  card.name = 'Card';
+  card.x = 100; card.y = 100;
+  card.resize(340, 1); // Fixed width!
+  card.layoutMode = 'HORIZONTAL';
+  card.primaryAxisSizingMode = 'FIXED';
+  card.counterAxisSizingMode = 'AUTO';
+  card.paddingTop = card.paddingBottom = card.paddingLeft = card.paddingRight = 20;
+  card.itemSpacing = 16;
+  card.cornerRadius = 12;
+  card.fills = [{ type: 'SOLID', color: { r: 0.094, g: 0.094, b: 0.106 } }];
+
+  // 3. Content frame must FILL remaining space
+  const content = figma.createFrame();
+  content.fills = [];
+  content.layoutMode = 'VERTICAL';
+  content.itemSpacing = 4;
+  card.appendChild(content);
+  content.layoutSizingHorizontal = 'FILL'; // Critical!
+
+  // 4. Text must FILL to wrap
+  const title = figma.createText();
+  title.fontName = { family: 'Inter', style: 'Bold' };
+  title.characters = 'Title here';
+  title.fontSize = 14;
+  title.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
+  content.appendChild(title);
+  title.layoutSizingHorizontal = 'FILL'; // Critical!
+
+  // 5. Convert to component
+  const comp = figma.createComponentFromNode(card);
+  return { id: comp.id, name: comp.name };
+})()"
+```
+
+**Auto-Layout Rules (Text Cut-Off Prevention):**
+1. Parent frame needs `resize(WIDTH, 1)` + `primaryAxisSizingMode = 'FIXED'`
+2. Child content frames need `layoutSizingHorizontal = 'FILL'` AFTER appendChild
+3. ALL text nodes need `layoutSizingHorizontal = 'FILL'` AFTER appendChild
+4. Order matters: appendChild first, then set layoutSizingHorizontal
+
+## Complex Components (Pricing Cards, etc.)
+
+For complex multi-element components, use a **single eval** with native Figma API instead of JSX:
+
+### Pattern
+1. **Check for variables first** - don't assume any collection exists
+2. **Use fallback colors** when no variables present
+3. **Single eval** - create everything in one API call
+4. **Data-driven** - define content in array, loop to create
+5. **Equal height** - use `layoutAlign: "STRETCH"` and `layoutGrow: 1`
+
+### Fallback Colors (Dark Theme)
+```javascript
+const colors = {
+  bg: { r: 0.09, g: 0.09, b: 0.11 },       // #17171c
+  card: { r: 0.11, g: 0.11, b: 0.13 },     // #1c1c21
+  border: { r: 0.2, g: 0.2, b: 0.22 },     // #333338
+  primary: { r: 0.23, g: 0.51, b: 0.97 },  // #3b82f8
+  text: { r: 0.98, g: 0.98, b: 0.98 },     // #fafafa
+  muted: { r: 0.6, g: 0.6, b: 0.65 },      // #999aa6
+  white: { r: 1, g: 1, b: 1 }
+};
+```
+
+### Variable Detection
+```javascript
+const collections = await figma.variables.getLocalVariableCollectionsAsync();
+if (collections.length > 0) {
+  // Ask user which collection to use
+} else {
+  // Use fallback colors
+}
+```
+
+### Equal Height Cards
+```javascript
+for (const card of container.children) {
+  card.layoutAlign = 'STRETCH';
+  card.primaryAxisSizingMode = 'FIXED';
+  for (const child of card.children) {
+    if (child.name === 'Features') {
+      child.layoutGrow = 1;
+    }
+  }
+}
+```
+
+### Button Component Pattern (for variants)
+```javascript
+frame.layoutMode = "HORIZONTAL";
+frame.primaryAxisSizingMode = "FIXED";
+frame.counterAxisSizingMode = "FIXED";
+frame.resize(100, 40);
+frame.primaryAxisAlignItems = "CENTER";
+frame.counterAxisAlignItems = "CENTER";
+frame.paddingLeft = frame.paddingRight = 16;
+frame.paddingTop = frame.paddingBottom = 10;
+
+text.textAlignHorizontal = "CENTER";
+text.layoutAlign = "STRETCH";
+text.layoutGrow = 1;
+```
+
+### Check Positions Before Creating
+```javascript
+const nodes = figma.currentPage.children.map(n => ({
+  name: n.name, x: n.x, width: n.width
+}));
+const maxX = Math.max(0, ...nodes.map(n => n.x + n.width)) + 100;
+```
+
+## Layout Patterns
+
+### Badge at avatar corner
+```jsx
+// Absolute x/y is relative to parent padding
+// Avatar at padding=24, size=100, badge=20
+// Position: padding + avatarSize - badgeSize/2 = 24 + 100 - 10 = 114
+<Frame p={24}>
+  <Frame w={100} h={100} rounded={50} />
+  <Frame name="Badge" w={20} h={20} position="absolute" x={114} y={114} />
+</Frame>
+```
+
+### Input at bottom (chat pattern)
+```jsx
+<Frame flex="col" h={400}>
+  <Frame>Message 1</Frame>
+  <Frame grow={1} />
+  <Frame>Input field</Frame>
+</Frame>
+```
+
+### Avoid content overflow
+```jsx
+// BAD: fixed height too small for auto-sized children
+<Frame h={160} p={24}><Frame h={139} /></Frame>  // 139+48 > 160!
+
+// GOOD: ensure height fits content + padding
+<Frame h={200} p={24}><Frame h={139} /></Frame>  // 139+48 < 200 ✓
+```
+
+## Creating Webpages
+
+Create ONE parent frame with vertical auto-layout containing all sections:
+
+```bash
+node src/index.js render '<Frame name="Landing Page" w={1440} flex="col" bg="#0a0a0f">
+  <Frame name="Hero" w="fill" h={800} flex="col" justify="center" items="center" gap={24} p={80}>
+    <Text size={64} weight="bold" color="#fff">Headline</Text>
+    <Frame bg="#3b82f6" px={32} py={16} rounded={8}><Text color="#fff">CTA</Text></Frame>
+  </Frame>
+  <Frame name="Features" w="fill" flex="row" gap={40} p={80} bg="#111">
+    <Frame flex="col" gap={12} grow={1}><Text size={24} weight="bold" color="#fff">Feature 1</Text></Frame>
+  </Frame>
+</Frame>'
+```
+
+## Slot Details
+
+### JSX Slot Syntax
+
+Use `<Slot>` in JSX. When parent is a component, creates real SLOT. Otherwise falls back to frame.
+
+**Slot props:** `name`, `flex`, `gap`, `p`/`px`/`py`, `w`/`h`, `bg`
+
+### Slot Workflow
+
+1. Render component with `<Slot>`, then `node to-component "frame-id"`
+2. Or add to existing: `slot create "Content" --flex col --gap 8`
+3. Set preferred: `slot preferred "Slot#1:2" "comp-id-1" "comp-id-2"`
+
+**In instances, slots allow:** Adding content, reordering, removing, reset to defaults.
