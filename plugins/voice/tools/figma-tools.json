@@ -1,0 +1,101 @@
+[
+  {
+    "name": "figma_render",
+    "description": "Render a JSX-like layout into Figma Desktop. Use for creating frames, text, components, layouts. Supports shadcn variable binding via 'var:name' syntax (e.g. bg=\"var:card\"). Use this for building UI components, cards, sections, pages.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "jsx": {
+          "type": "string",
+          "description": "JSX string to render. Example: '<Frame bg=\"var:card\" p={24} rounded={12}><Text size={18}>Hello</Text></Frame>'"
+        }
+      },
+      "required": ["jsx"]
+    }
+  },
+  {
+    "name": "figma_verify",
+    "description": "Take a screenshot of the current selection or a specific node in Figma. Use after creating or modifying anything to visually verify the result. Returns a base64 image.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "node_id": {
+          "type": "string",
+          "description": "Optional node ID (e.g. '123:456'). If omitted, screenshots the current selection."
+        }
+      }
+    }
+  },
+  {
+    "name": "figma_blocks_create",
+    "description": "Create a pre-built UI block (dashboard, etc.) in Figma. Use this instead of building dashboards manually. Available blocks: dashboard-01.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "block": {
+          "type": "string",
+          "description": "Block name, e.g. 'dashboard-01'"
+        }
+      },
+      "required": ["block"]
+    }
+  },
+  {
+    "name": "figma_blocks_list",
+    "description": "List all available pre-built UI blocks.",
+    "input_schema": { "type": "object", "properties": {} }
+  },
+  {
+    "name": "figma_tokens",
+    "description": "Create design tokens/variables in Figma. Presets: 'shadcn' (244 primitives + 32 semantic with Light/Dark), 'tailwind' (242 primitive colors), 'ds' (IDS base colors).",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "preset": {
+          "type": "string",
+          "enum": ["shadcn", "tailwind", "ds"],
+          "description": "Which token preset to install."
+        }
+      },
+      "required": ["preset"]
+    }
+  },
+  {
+    "name": "figma_eval",
+    "description": "Execute arbitrary Figma plugin API JavaScript. Use for complex operations not covered by other tools (e.g. custom component creation, bulk edits). The code runs inside Figma's plugin sandbox. Wrap async code in '(async () => { ... })()'.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "JavaScript code to execute in Figma plugin context."
+        }
+      },
+      "required": ["code"]
+    }
+  },
+  {
+    "name": "figma_a11y_audit",
+    "description": "Run a full accessibility audit (contrast, touch targets, text) on a specific node. IMPORTANT: Always pass a node_id — call figma_get_selection first to get the user's current selection, or pass the id of a specific component. Auditing the whole page without a node_id is extremely slow and should be avoided.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "node_id": {
+          "type": "string",
+          "description": "Node ID to audit (e.g. '2004:29'). Required for fast results."
+        }
+      },
+      "required": ["node_id"]
+    }
+  },
+  {
+    "name": "figma_get_selection",
+    "description": "Get info about the currently selected node(s) in Figma: names, types, sizes, positions. Use this to understand what the user is pointing at before acting.",
+    "input_schema": { "type": "object", "properties": {} }
+  },
+  {
+    "name": "figma_component_list",
+    "description": "List all components in the current Figma file.",
+    "input_schema": { "type": "object", "properties": {} }
+  }
+]

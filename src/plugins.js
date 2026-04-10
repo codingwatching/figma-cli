@@ -4,10 +4,13 @@
  * Plugins are downloaded to ~/.figma-cli/plugins/<name>/
  */
 
-import { existsSync, mkdirSync, readFileSync, rmSync, readdirSync } from 'fs';
-import { join } from 'path';
+import { existsSync, mkdirSync, readFileSync, rmSync, readdirSync, cpSync } from 'fs';
+import { join, dirname } from 'path';
 import { homedir } from 'os';
 import { execSync } from 'child_process';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 import chalk from 'chalk';
 import { saveKey, getKey, deleteKey, maskKey, promptKeySecure } from './credentials.js';
 
@@ -32,8 +35,6 @@ export const REGISTRY = [
   {
     name: 'voice',
     description: 'Talk to Figma with your voice',
-    repo: 'silships/fig-agent',
-    branch: 'main',
     commands: ['voice', 'chat'],
     requiredKeys: [
       {
@@ -101,25 +102,17 @@ export async function installPlugin(name) {
   ensurePluginsDir();
   const dir = getPluginDir(name);
 
-  console.log(chalk.gray(`Downloading ${name} plugin...`));
-
-  try {
-    // Clone just the plugin files from the repo
-    execSync(
-      `git clone --depth 1 --branch ${entry.branch} https://github.com/${entry.repo}.git "${dir}"`,
-      { stdio: 'pipe' }
-    );
-    // Remove .git to save space
-    rmSync(join(dir, '.git'), { recursive: true, force: true });
-  } catch (err) {
-    console.log(chalk.red(`Failed to download plugin: ${err.message}`));
-    rmSync(dir, { recursive: true, force: true });
-    return false;
-  }
-
-  if (!existsSync(join(dir, 'plugin.json'))) {
-    console.log(chalk.red('Downloaded plugin is missing plugin.json'));
-    rmSync(dir, { recursive: true, force: true });
+  // Copy bundled plugin from plugins/ directory
+  const bundledDir = join(__dirname, '..', 'plugins', name);
+  if (existsSync(bundledDir) && existsSync(join(bundledDir, 'plugin.json'))) {
+    try {
+      cpSync(bundledDir, dir, { recursive: true });
+    } catch (err) {
+      console.log(chalk.red(`Failed to install plugin: ${err.message}`));
+      return false;
+    }
+  } else {
+    console.log(chalk.red(`Plugin "${name}" not found in figma-cli.`));
     return false;
   }
 
