@@ -6,30 +6,35 @@ CLI that controls Figma Desktop directly. No API key needed.
 
 | User says | Command |
 |-----------|---------|
-| "connect to figma" | `node src/index.js connect` |
-| "add shadcn colors" | `node src/index.js tokens preset shadcn` |
-| "add tailwind colors" | `node src/index.js tokens tailwind` |
-| "show colors on canvas" | `node src/index.js var visualize` |
-| "create dashboard" | `node src/index.js blocks create dashboard-01` |
-| "list blocks" | `node src/index.js blocks list` |
+| "connect to figma" | `figma-cli connect` |
+| "add shadcn colors" | `figma-cli tokens preset shadcn` |
+| "add tailwind colors" | `figma-cli tokens tailwind` |
+| "show colors on canvas" | `figma-cli var visualize` |
+| "create dashboard" | `figma-cli blocks create dashboard-01` |
+| "list blocks" | `figma-cli blocks list` |
 | "create cards/buttons" | `render-batch` + `node to-component` |
-| "create a rectangle/frame" | `node src/index.js render '<Frame>...'` |
-| "convert to component" | `node src/index.js node to-component "ID"` |
-| "list variables" | `node src/index.js var list` |
-| "find nodes named X" | `node src/index.js find "X"` |
-| "what's on canvas" | `node src/index.js canvas info` |
-| "export as PNG/SVG" | `node src/index.js export png` |
-| "show all variants" | `node src/index.js combos` |
-| "create size variants" | `node src/index.js sizes --base small` |
-| "create a slot" | `node src/index.js slot create "Name"` |
-| "list slots" | `node src/index.js slot list` |
-| "reset slot" | `node src/index.js slot reset` |
-| "verify creation" | `node src/index.js verify` |
-| "check contrast" | `node src/index.js a11y contrast` |
-| "color blindness sim" | `node src/index.js a11y vision` |
-| "check touch targets" | `node src/index.js a11y touch` |
-| "check text a11y" | `node src/index.js a11y text` |
-| "full a11y audit" | `node src/index.js a11y audit` |
+| "create a rectangle/frame" | `figma-cli render '<Frame>...'` |
+| "convert to component" | `figma-cli node to-component "ID"` |
+| "list variables" | `figma-cli var list` |
+| "find nodes named X" | `figma-cli find "X"` |
+| "what's on canvas" | `figma-cli canvas info` |
+| "export as PNG/SVG" | `figma-cli export png` |
+| "show all variants" | `figma-cli combos` |
+| "create size variants" | `figma-cli sizes --base small` |
+| "create a slot" | `figma-cli slot create "Name"` |
+| "list slots" | `figma-cli slot list` |
+| "reset slot" | `figma-cli slot reset` |
+| "verify creation" | `figma-cli verify` |
+| "check contrast" | `figma-cli a11y contrast` |
+| "color blindness sim" | `figma-cli a11y vision` |
+| "check touch targets" | `figma-cli a11y touch` |
+| "check text a11y" | `figma-cli a11y text` |
+| "full a11y audit" | `figma-cli a11y audit` |
+| "show plugins" | `figma-cli plugins` |
+| "install voice" | `figma-cli plugins install voice` |
+| "setup voice key" | `figma-cli plugins setup voice` (in regular Terminal!) |
+| "voice mode" | `figma-cli voice` |
+| "chat with figma" | `figma-cli chat "build a button"` |
 
 **Full command reference:** See REFERENCE.md
 
@@ -44,7 +49,7 @@ CLI that controls Figma Desktop directly. No API key needed.
 5. **Convert to components:** `node to-component` after creation
 6. **Never show terminal commands to users.** Run silently, give friendly feedback.
 7. **NEVER delete existing nodes** - users may have components they want to keep!
-8. **Always verify after creating:** `node src/index.js verify "NODE_ID"`
+8. **Always verify after creating:** `figma-cli verify "NODE_ID"`
 
 ---
 
@@ -53,8 +58,8 @@ CLI that controls Figma Desktop directly. No API key needed.
 After creating any component, run `verify` to get a small screenshot for validation:
 
 ```bash
-node src/index.js verify              # Screenshot of selection
-node src/index.js verify "123:456"    # Screenshot of specific node
+figma-cli verify              # Screenshot of selection
+figma-cli verify "123:456"    # Screenshot of specific node
 ```
 
 Returns JSON with base64 image (max 2000px). This is for internal AI checks, not shown to users.
@@ -66,8 +71,8 @@ Returns JSON with base64 image (max 2000px). This is for internal AI checks, not
 **ALWAYS use `blocks create` for dashboards and page layouts.** Never build them manually.
 
 ```bash
-node src/index.js blocks list                    # Show available blocks
-node src/index.js blocks create dashboard-01     # Create dashboard in Figma
+figma-cli blocks list                    # Show available blocks
+figma-cli blocks create dashboard-01     # Create dashboard in Figma
 ```
 
 **dashboard-01**: Full analytics dashboard (sidebar, stats cards, area chart, data table). All colors bound to shadcn variables (Light/Dark mode). Block source files: `src/blocks/`
@@ -77,11 +82,11 @@ node src/index.js blocks create dashboard-01     # Create dashboard in Figma
 ## Design Tokens
 
 ```bash
-node src/index.js tokens preset shadcn   # 244 primitives + 32 semantic (Light/Dark)
-node src/index.js tokens tailwind        # 242 primitive colors only
-node src/index.js tokens ds              # IDS Base colors
-node src/index.js var delete-all         # Delete all variables
-node src/index.js var delete-all -c "primitives"  # Only specific collection
+figma-cli tokens preset shadcn   # 244 primitives + 32 semantic (Light/Dark)
+figma-cli tokens tailwind        # 242 primitive colors only
+figma-cli tokens ds              # IDS Base colors
+figma-cli var delete-all         # Delete all variables
+figma-cli var delete-all -c "primitives"  # Only specific collection
 ```
 
 - `tokens preset shadcn` = Full system (primitives + semantic with Light/Dark mode)
@@ -96,15 +101,15 @@ Use `var:name` to bind variables at creation time. Works with `render`, `create`
 
 ```bash
 # JSX render
-node src/index.js render '<Frame bg="var:card" stroke="var:border" rounded={12} p={24}>
+figma-cli render '<Frame bg="var:card" stroke="var:border" rounded={12} p={24}>
   <Text color="var:foreground" size={18}>Title</Text>
 </Frame>'
 
 # Create commands
-node src/index.js create rect "Card" --fill "var:card" --stroke "var:border"
+figma-cli create rect "Card" --fill "var:card" --stroke "var:border"
 
 # Set commands
-node src/index.js set fill "var:primary"
+figma-cli set fill "var:primary"
 ```
 
 **Available shadcn variables:** `background`, `foreground`, `card`, `primary`, `secondary`, `muted`, `accent`, `border`, `input`, `ring`, and their `-foreground` variants.
@@ -113,9 +118,9 @@ node src/index.js set fill "var:primary"
 
 ## Connection Modes
 
-**Yolo Mode (Recommended):** `node src/index.js connect` - Patches Figma once, fully automatic.
+**Yolo Mode (Recommended):** `figma-cli connect` - Patches Figma once, fully automatic.
 
-**Safe Mode:** `node src/index.js connect --safe` - Plugin-based, no Figma modification. Then: Plugins > Development > FigCli.
+**Safe Mode:** `figma-cli connect --safe` - Plugin-based, no Figma modification. Then: Plugins > Development > FigCli.
 
 **Safe Mode caveat:** `render-batch` does NOT render text properly. Use `eval` with direct Figma API for components with text (see REFERENCE.md "Safe Mode Component Creation").
 
@@ -274,7 +279,7 @@ This applies to ALL text: titles, descriptions, labels, any multi-word text.
 
 Setting `frame.isSlot = true` in eval will NOT create a slot. Use:
 ```bash
-node src/index.js slot convert "frame-id" --name "SlotName"
+figma-cli slot convert "frame-id" --name "SlotName"
 ```
 
 ---
@@ -282,12 +287,12 @@ node src/index.js slot convert "frame-id" --name "SlotName"
 ## Slots (Quick Reference)
 
 ```bash
-node src/index.js slot create "Content" --flex col --gap 8 --padding 16
-node src/index.js slot list
-node src/index.js slot preferred "Slot#1:2" "comp-id-1" "comp-id-2"
-node src/index.js slot reset
-node src/index.js slot convert --name "Actions"    # Convert frame to slot
-node src/index.js slot add "slot-id" --component "comp-id"
+figma-cli slot create "Content" --flex col --gap 8 --padding 16
+figma-cli slot list
+figma-cli slot preferred "Slot#1:2" "comp-id-1" "comp-id-2"
+figma-cli slot reset
+figma-cli slot convert --name "Actions"    # Convert frame to slot
+figma-cli slot add "slot-id" --component "comp-id"
 ```
 
 JSX: `<Slot name="Content" flex="col" gap={8} w="fill" />` (creates real slot when parent is component)
@@ -298,7 +303,7 @@ JSX: `<Slot name="Content" flex="col" gap={8} w="fill" />` (creates real slot wh
 
 1. Run `npm install` silently
 2. Ask connection mode (Yolo or Safe)
-3. Run `node src/index.js connect` (or `--safe`)
+3. Run `figma-cli connect` (or `--safe`)
 4. When connected, say: "Connected! What would you like to create?"
 
 If permission error (macOS): System Settings > Privacy > Full Disk Access > Add Terminal
@@ -308,12 +313,12 @@ If permission error (macOS): System Settings > Privacy > Full Disk Access > Add 
 ## Other Commands
 
 ```bash
-node src/index.js var visualize              # Show colors on canvas
-node src/index.js var visualize "primitives" # Filter by collection
-node src/index.js recreate-url "URL"         # Recreate webpage in Figma
-node src/index.js screenshot-url "URL"       # Screenshot webpage
-node src/index.js daemon status              # Check daemon
-node src/index.js daemon restart             # Restart daemon
+figma-cli var visualize              # Show colors on canvas
+figma-cli var visualize "primitives" # Filter by collection
+figma-cli recreate-url "URL"         # Recreate webpage in Figma
+figma-cli screenshot-url "URL"       # Screenshot webpage
+figma-cli daemon status              # Check daemon
+figma-cli daemon restart             # Restart daemon
 ```
 
 For eval patterns, layout examples, and Safe Mode templates, see REFERENCE.md.

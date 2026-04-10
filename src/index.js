@@ -8316,4 +8316,40 @@ blocksCmd
     }
   });
 
+// ============ PLUGINS ============
+
+import { listPlugins, installPlugin, uninstallPlugin, setupPlugin, loadPlugins } from './plugins.js';
+
+const plugins = program
+  .command('plugins')
+  .description('Manage plugins (voice, etc.)');
+
+plugins
+  .command('list')
+  .description('List available plugins')
+  .action(() => listPlugins());
+
+// Default action when just "figma-cli plugins" is typed
+plugins.action(() => listPlugins());
+
+plugins
+  .command('install <name>')
+  .description('Install a plugin')
+  .action(async (name) => { await installPlugin(name); });
+
+plugins
+  .command('uninstall <name>')
+  .description('Uninstall a plugin')
+  .action((name) => uninstallPlugin(name));
+
+plugins
+  .command('setup <name>')
+  .description('Set up API keys for a plugin (run in regular Terminal, not AI chat)')
+  .action(async (name) => { await setupPlugin(name); });
+
+// Load installed plugin commands
+try {
+  loadPlugins(program, { daemonExec, checkConnection, getDaemonToken });
+} catch {}
+
 program.parse();
