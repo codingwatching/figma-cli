@@ -36,11 +36,9 @@ async function executeCode(code, timeoutMs = 25000) {
     }
   }
 
-  const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
-  const fn = new AsyncFunction('figma', `return (async () => { ${trimmed} })()`);
-
-  // Execute with timeout protection
-  const execPromise = fn(figma);
+  // Figma's QuickJS sandbox blocks `new Function` / `new AsyncFunction`.
+  // eval() runs in the plugin's main scope where `figma` is already global.
+  const execPromise = eval(`(async () => { ${trimmed} })()`);
   const timeoutPromise = new Promise((_, reject) =>
     setTimeout(() => reject(new Error(`Execution timeout (${timeoutMs/1000}s)`)), timeoutMs)
   );
