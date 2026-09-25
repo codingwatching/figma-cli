@@ -1,6 +1,30 @@
 # Changelog
 
-## Unreleased
+## 2.2.0 (2026-09-25)
+
+### Added: AI agents finish Figma tasks in fewer calls
+
+- `render --page "Name"` and `render-batch --page "Name"` render on that page and create it when missing
+- `render` prints the structure it built (sizes and layout and padding and bound variables and which component each instance uses)
+- `<Instance component="Button" variant="size=large" text="Save" />` finds a component on any page and picks the variant and relabels it
+- `effectStyle="..."` on frames and `textStyle="..."` on text
+- `render-batch --variant-set Button` turns frames named `prop=value, prop=value` into one component set
+- `eval` helpers: `$page` `$var` `$bind` `$style` `$component` `$instance` `$fontSafe` `$describe`
+- Fonts that are not installed are swapped to Inter so instances can be relabelled and moved into frames
+- `init-agent` rules carry a version marker and `connect` refreshes an outdated AGENTS.md
+
+### Changed
+
+- `eval` output to a pipe is compact JSON capped at 20,000 characters. A terminal still gets indented JSON
+
+### Fixed
+
+- `pt` `pr` `pb` `pl` on the outermost frame were ignored
+- `instantiate` hung forever on a library key that was never published
+- The live roundtrip test left fixture pages in the connected file
+
+
+## 2.1.1 and 2.1.2 (2026-08-12)
 
 ### Fixed — auto-layout
 
